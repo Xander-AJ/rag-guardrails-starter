@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-guardrails-starter"
+version = "0.1.0"
+description = "A starter library for building RAG pipelines with safety guardrails and pluggable LLM providers."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "rag-guardrails-starter contributors" }]
+keywords = ["rag", "guardrails", "llm", "langchain", "safety"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "langchain",
+    "langchain-openai",
+    "langchain-community",
+    "openai",
+    "anthropic",
+    "ollama",
+    "google-generativeai",
+    "cohere",
+    "mistralai>=1.0,<2",  # pinned <2 — mistralai 2.x is a broken namespace package
+    "python-dotenv",
+    "pydantic>=2",
+    "pydantic-settings>=2",
+    "qdrant-client",
+    "tiktoken",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "black",
+    "ruff",
+    "mypy",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/rag-guardrails-starter"
+Documentation = "https://github.com/your-org/rag-guardrails-starter/tree/main/docs"
+
+[tool.setuptools.packages.find]
+include = ["rag_guardrails*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
