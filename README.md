@@ -4,7 +4,7 @@ A Python library for building RAG pipelines with input/output guardrails, emerge
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-80%20passing-brightgreen)
 
 ## The problem this solves
 
@@ -24,7 +24,7 @@ Most RAG tutorials show you how to retrieve documents and generate an answer. No
 - **Multi-turn memory** — a rolling window of conversation turns, rendered into the prompt automatically.
 
 **Provider agnostic**
-- OpenAI, OpenRouter, and any LangChain chat model implement the same `BaseProvider` contract. Switching backends is a one-line change; the guardrails and retrieval code never change.
+- Eight backends implement the same `BaseProvider` contract: **OpenAI**, **OpenRouter**, **Anthropic** (Claude), **Google Gemini**, **Cohere**, **Mistral**, **Ollama** (local, no API key), and any **LangChain** chat model. Switching backends is a one-line change; the guardrails and retrieval code never change.
 
 ## Installation
 
@@ -48,6 +48,11 @@ Copy `.env.example` to `.env` and fill in the keys for the providers you use:
 # .env.example
 OPENAI_API_KEY=sk-...                 # required for OpenAIProvider (the default)
 OPENROUTER_API_KEY=sk-or-...          # required only for OpenRouterProvider
+ANTHROPIC_API_KEY=sk-ant-...          # required only for AnthropicProvider
+GEMINI_API_KEY=...                    # required only for GeminiProvider
+COHERE_API_KEY=...                    # required only for CohereProvider
+MISTRAL_API_KEY=...                   # required only for MistralProvider
+OLLAMA_BASE_URL=http://localhost:11434  # OllamaProvider (local; no key needed)
 QDRANT_URL=http://localhost:6333      # required only for QdrantRetriever
 QDRANT_COLLECTION=rag_documents       # optional; defaults to rag_documents
 MODEL_NAME=gpt-4o-mini                # optional; default model identifier
@@ -97,8 +102,8 @@ User query
     │ context
     ▼
 ┌─────────────┐
-│  Provider   │   (OpenAI / OpenRouter / LangChain)
-└─────────────┘
+│  Provider   │   (OpenAI / OpenRouter / Anthropic / Gemini /
+└─────────────┘    Cohere / Mistral / Ollama / LangChain)
     │ draft answer
     ▼
 ┌──────────────────────┐
@@ -118,7 +123,7 @@ User query
 
 ## Provider configuration
 
-All three providers implement `BaseProvider` and are passed to `RAGPipeline` the same way.
+All eight providers implement `BaseProvider` and are passed to `RAGPipeline` the same way: `RAGPipeline(provider=..., retriever=...)`. Each reads its key/model from configuration (or `get_config()`), so most are a one-line construction.
 
 ```python
 # OpenAI (default)
@@ -134,6 +139,36 @@ await provider.complete(messages, model="anthropic/claude-3-haiku")
 ```
 
 ```python
+# Anthropic (Claude) — default model claude-3-5-haiku-20241022
+from rag_guardrails import AnthropicProvider
+provider = AnthropicProvider()
+```
+
+```python
+# Google Gemini — default model gemini-1.5-flash
+from rag_guardrails import GeminiProvider
+provider = GeminiProvider()
+```
+
+```python
+# Cohere — default model command-r-plus
+from rag_guardrails import CohereProvider
+provider = CohereProvider()
+```
+
+```python
+# Mistral — default model mistral-small-latest
+from rag_guardrails import MistralProvider
+provider = MistralProvider()
+```
+
+```python
+# Ollama — a local model, no API key required (set OLLAMA_BASE_URL)
+from rag_guardrails import OllamaProvider
+provider = OllamaProvider()  # default model llama3.2
+```
+
+```python
 # LangChain, wrapping any chat model you construct
 from rag_guardrails import LangChainProvider
 from langchain_openai import ChatOpenAI
@@ -146,11 +181,16 @@ All settings are read from the environment (or a `.env` file) via `rag_guardrail
 
 | Field | Type | Default | Controls |
 |-------|------|---------|----------|
-| `provider` | `"openai" \| "openrouter" \| "langchain"` | `"openai"` | Active LLM backend. |
+| `provider` | `"openai" \| "openrouter" \| "langchain" \| "anthropic" \| "ollama" \| "gemini" \| "cohere" \| "mistral"` | `"openai"` | Active LLM backend. |
 | `model_name` | `str` | `"gpt-4o-mini"` | Default model identifier for the active provider. |
 | `openai_api_key` | `SecretStr \| None` | `None` | API key for `OpenAIProvider`. |
 | `openrouter_api_key` | `SecretStr \| None` | `None` | API key for `OpenRouterProvider`. |
 | `openrouter_base_url` | `str` | `"https://openrouter.ai/api/v1"` | Base URL for the OpenRouter-compatible API. |
+| `anthropic_api_key` | `SecretStr \| None` | `None` | API key for `AnthropicProvider`. |
+| `ollama_base_url` | `str` | `"http://localhost:11434"` | Base URL of the local Ollama server. |
+| `gemini_api_key` | `SecretStr \| None` | `None` | API key for `GeminiProvider`. |
+| `cohere_api_key` | `SecretStr \| None` | `None` | API key for `CohereProvider`. |
+| `mistral_api_key` | `SecretStr \| None` | `None` | API key for `MistralProvider`. |
 | `qdrant_url` | `str \| None` | `None` | URL of the Qdrant vector store (required for `QdrantRetriever`). |
 | `qdrant_collection` | `str` | `"rag_documents"` | Qdrant collection used for retrieval. |
 | `memory_window` | `int` | `10` | Number of recent conversation turns retained. |
@@ -166,7 +206,7 @@ Each is a self-contained script under `examples/`. Run with `python examples/<na
 - **`basic_rag.py`** — the minimal pipeline: load chunks, build the pipeline, run one query, print the answer and sources.
 - **`with_guardrails.py`** — the guardrail layer made visible: a clean query, a prompt injection that is blocked before the LLM, and a medical query that gets a disclaimer appended.
 - **`healthcare_domain.py`** — a healthcare-tuned configuration (strict hallucination threshold, emergency detection) running a normal question, a memory-backed follow-up, a critical emergency, and a local-availability question.
-- **`custom_provider.py`** — the same query run through OpenAI, OpenRouter (with a model override), and LangChain (with an injected `ChatOpenAI`) to show provider swapping.
+- **`custom_provider.py`** — the same query run through five backends (OpenAI, OpenRouter with a model override, LangChain with an injected `ChatOpenAI`, Anthropic, and a local Ollama model) to show provider swapping; a missing key skips just that provider.
 
 ## Project structure
 
@@ -188,6 +228,11 @@ rag_guardrails/
 │   ├── base.py                      # BaseProvider contract + ProviderResponse
 │   ├── openai_provider.py           # OpenAI backend
 │   ├── openrouter_provider.py       # OpenRouter backend (OpenAI-compatible)
+│   ├── anthropic_provider.py        # Anthropic (Claude) backend
+│   ├── gemini_provider.py           # Google Gemini backend
+│   ├── cohere_provider.py           # Cohere v2 backend
+│   ├── mistral_provider.py          # Mistral backend
+│   ├── ollama_provider.py           # local Ollama backend (no API key)
 │   └── langchain_provider.py        # adapter for any LangChain chat model
 └── memory/
     └── multi_turn.py                # ConversationMemory rolling-window store
@@ -195,7 +240,7 @@ rag_guardrails/
 
 ## Contributing
 
-Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the suggested build order and module conventions. The test suite runs with `pytest tests/` and exercises the real guards, detectors, and pipeline (the provider is mocked, so no API key is needed to run it). All pull requests must keep the suite green at 65+ passing tests; if you change guard behavior, update or add the tests that pin it. Run `pip install -e ".[dev]"` to get pytest, ruff, black, and mypy.
+Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the suggested build order and module conventions. The test suite runs with `pytest tests/` and exercises the real guards, detectors, and pipeline (the provider is mocked, so no API key is needed to run it). All pull requests must keep the suite green (80+ passing tests); if you change guard behavior, update or add the tests that pin it. Run `pip install -e ".[dev]"` to get pytest, ruff, black, and mypy.
 
 ## License
 
